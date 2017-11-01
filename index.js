@@ -1,24 +1,38 @@
 "use strict";
 
-const wss = require('ws');
-const redis = require('redis');
-const bluebird = require('bluebird');
-bluebird.promisifyAll(redis.RedisClient.prototype);
+const fs = require('fs')
+const WebSocket = require('ws')
+const redis = require('redis')
+const bluebird = require('bluebird')
+bluebird.promisifyAll(redis.RedisClient.prototype)
+const redisc = redis.createClient()
+const pub = redis.createClient()
+const sub = redis.createClient()
 
-const defaultServlet = (req, res)=> {
-    res.writeHead(200, {'Content-Type': 'text/plain'});
-    res.write(`Look at my servlet!`);
-    res.end();
+const winston = require('winston')
+const logger = winston.createLogger({
+    level: 'info',
+    format: winston.format.json(),
+    transports: [
+            new winston.transports.File({ filename: '../log/error.log', level: 'error' }),
+        ]
+})
+if (process.env.NODE_ENV !== 'production') {
+    logger.add(new winston.transports.Console({
+        format: winston.format.simple()
+    }))
 }
 
-const factory = (servlet = defaultServlet, websocket = false)=> {
+const defaultServlet = (req, res)=> {
+    res.writeHead(200, {'Content-Type': 'text/plain'})
+    res.write('Look at my servlet!')
+    res.end()
+}
+
+(() => {
+    let path = `${process.cwd()}/servlet.js`
+    let servlet = fs.existsSync(path) ? require(path)({redisc, pub, sub}, logger) : defaultServlet
     const port = +process.argv[2] || 3000;
     require('http').createServer(servlet).listen(port);
     console.log(`HTTP server is listening at port ${port}`);
-    if(!websocket || typeof withsocket !== 'function') return;
-    const wss = new WebSocket.Server({port: port + 500});
-    console.log(`Websocket server is listening at port ${port + 500}`);
-    wss.on('connection', websocket);
-}
-
-module.exports = {factory, redis};
+})()
