@@ -1,5 +1,6 @@
 "use strict";
 
+const moment = require('moment')
 const fs = require('fs')
 const WebSocket = require('ws')
 const redis = require('redis')
@@ -9,17 +10,23 @@ const redisc = redis.createClient()
 const pub = redis.createClient()
 const sub = redis.createClient()
 
-const winston = require('winston')
-const logger = winston.createLogger({
-    level: 'info',
-    format: winston.format.json(),
-    transports: [
-            new winston.transports.File({ filename: '../log/error.log', level: 'error' }),
-        ]
+const {createLogger, format, transports} = require('winston')
+const { combine, timestamp, label, printf } = format
+const fmt = printf(info => {
+    return `${moment().format('YYYY-MM-DD HH:mm')} ${info.message}`;
 })
+
+const logger = createLogger({
+    level: 'error',
+    format: fmt,
+    transports: [
+        new transports.File({ filename: '../log/error.log', level: 'error' }),
+    ]
+})
+
 if (process.env.NODE_ENV !== 'production') {
-    logger.add(new winston.transports.Console({
-        format: winston.format.simple()
+    logger.add(new transports.Console({
+        format: fmt
     }))
 }
 
